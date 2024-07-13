@@ -133,6 +133,9 @@ class db_language		# userspace
 
 class binder
 
+# Updated netlink classes for more recent netlink protocols.
+class netlink_generic_socket
+
 # Property service
 class property_service          # userspace
 

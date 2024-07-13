@@ -4,6 +4,8 @@ type vold_exec, exec_type, file_type;
 
 init_daemon_domain(vold)
 
+domain_auto_trans(b2g, vold_exec, vold)
+
 # Switch to more restrictive domains when executing common tools
 domain_auto_trans(vold, sgdisk_exec, sgdisk);
 domain_auto_trans(vold, sdcardd_exec, sdcardd);
@@ -163,8 +165,8 @@ allow vold self:capability sys_nice;
 allow vold self:capability sys_chroot;
 allow vold storage_file:dir mounton;
 
-neverallow { domain -vold } vold_data_file:dir ~{ open create read getattr setattr search relabelto ioctl };
+neverallow { domain -vold -b2g } vold_data_file:dir ~{ open create read getattr setattr search relabelto ioctl };
 neverallow { domain -vold } vold_data_file:notdevfile_class_set ~{ relabelto getattr };
-neverallow { domain -vold -init } vold_data_file:dir *;
+neverallow { domain -vold -init -b2g } vold_data_file:dir *;
 neverallow { domain -vold -init } vold_data_file:notdevfile_class_set *;
 neverallow { domain -vold -init } restorecon_prop:property_service set;

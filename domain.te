@@ -35,6 +35,7 @@ allow domain self:lnk_file r_file_perms;
 allow domain self:{ fifo_file file } rw_file_perms;
 allow domain self:unix_dgram_socket { create_socket_perms sendto };
 allow domain self:unix_stream_socket { create_stream_socket_perms connectto };
+allow domain domain:{ unix_dgram_socket unix_stream_socket } unpriv_unix_sock_ioctls;
 
 # Inherit or receive open files from others.
 allow domain init:fd use;
@@ -173,7 +174,7 @@ allow domain { asec_public_file asec_apk_file }:dir r_dir_perms;
 ###
 
 # Do not allow any domain other than init or recovery to create unlabeled files.
-neverallow { domain -init -recovery } unlabeled:dir_file_class_set create;
+neverallow { domain -init -recovery -b2g } unlabeled:dir_file_class_set create;
 
 # Limit ability to ptrace or read sensitive /proc/pid files of processes
 # with other UIDs to these whitelisted domains.
@@ -183,6 +184,7 @@ neverallow {
   -vold
   -dumpstate
   -system_server
+  -b2g
   userdebug_or_eng(`-procrank')
   userdebug_or_eng(`-perfprofd')
 } self:capability sys_ptrace;
@@ -194,6 +196,7 @@ neverallow {
   -init
   -ueventd
   -vold
+  -healthd
 } self:capability mknod;
 
 # Limit raw I/O to these whitelisted domains.
@@ -227,7 +230,7 @@ neverallow { domain -init } security_file:{ dir file lnk_file } { relabelfrom re
 # system_server is for creating subdirectories under /data/security.
 neverallow { domain -init -system_server } security_file:dir { create setattr };
 # Only system_server can create subdirectories and files under /data/security.
-neverallow { domain -system_server } security_file:dir { rename write add_name remove_name rmdir };
+neverallow { domain -system_server -b2g } security_file:dir { rename write add_name remove_name rmdir };
 neverallow { domain -system_server } security_file:file { create setattr write append unlink link rename };
 neverallow { domain -system_server } security_file:lnk_file { create setattr unlink rename };
 
@@ -258,7 +261,14 @@ neverallow domain kmem_device:chr_file ~{ create relabelto unlink setattr };
 
 # Only init should be able to configure kernel usermodehelpers or
 # security-sensitive proc settings.
-neverallow { domain -init } usermodehelper:file { append write };
+userdebug_or_eng(`
+    neverallow { domain -init -debuggerd } usermodehelper:file { append write };
+')
+
+user_build(`
+    neverallow { domain -init } usermodehelper:file { append write };
+')
+
 neverallow { domain -init } proc_security:file { append write };
 
 # No domain should be allowed to ptrace init.
@@ -270,13 +280,13 @@ neverallow domain init:binder *;
 
 # Don't allow raw read/write/open access to block_device
 # Rather force a relabel to a more specific type
-neverallow { domain -kernel -init -recovery -vold -uncrypt } block_device:blk_file { open read write };
+neverallow { domain -kernel -init -recovery -vold -uncrypt -b2g } block_device:blk_file { open read write };
 
 # Don't allow raw read/write/open access to generic devices.
 # Rather force a relabel to a more specific type.
 # init is exempt from this as there are character devices that only it uses.
 # ueventd is exempt from this, as it is managing these devices.
-neverallow { domain -init -ueventd } device:chr_file { open read write };
+neverallow { domain -init -ueventd -b2g -healthd} device:chr_file { open read write };
 
 # Limit what domains can mount filesystems or change their mount flags.
 # sdcard_type / vfat is exempt as a larger set of domains need
@@ -292,6 +302,7 @@ neverallow {
     -appdomain
     -dumpstate
     -shell
+    -api-daemon
     userdebug_or_eng(`-su')
     -system_server
     -zygote
@@ -303,8 +314,8 @@ neverallow {
 } { fs_type -rootfs }:file execute;
 
 # Only the init property service should write to /data/property.
-neverallow { domain -init } property_data_file:dir no_w_dir_perms;
-neverallow { domain -init } property_data_file:file no_w_file_perms;
+neverallow { domain -init -b2g } property_data_file:dir no_w_dir_perms;
+neverallow { domain -init -b2g } property_data_file:file no_w_file_perms;
 
 # Only recovery should be doing writes to /system
 neverallow { domain -recovery } { system_file exec_type }:dir_file_class_set
@@ -332,13 +343,13 @@ neverallow { domain -recovery } contextmount_type:dir_file_class_set
 # system_app_service rather than the generic type.
 # New service_types are defined in service.te and new mappings
 # from service name to service_type are defined in service_contexts.
-neverallow domain default_android_service:service_manager add;
+neverallow { domain -b2g } default_android_service:service_manager add;
 
 # Require that domains explicitly label unknown properties, and do not allow
 # anyone but init to modify unknown properties.
-neverallow { domain -init } default_prop:property_service set;
+neverallow { domain -init -b2g -mediaserver -api-daemon } default_prop:property_service set;
 
-neverallow { domain -init -recovery -system_server } frp_block_device:blk_file rw_file_perms;
+neverallow { domain -init -recovery -system_server -b2g } frp_block_device:blk_file rw_file_perms;
 
 # No domain other than recovery can write to system.
 neverallow { domain -recovery } system_block_device:blk_file write;
@@ -365,6 +376,7 @@ neverallow {
   -installd
   -dex2oat
   -zygote
+  -b2g
 } dalvikcache_data_file:dir no_w_dir_perms;
 
 # Only system_server should be able to send commands via the zygote socket
@@ -440,6 +452,10 @@ neverallow {
   -system_app
   -init
   -installd # for relabelfrom and unlink, check for this in explicit neverallow
+  -b2g
+  -adbd
+  -recovery
+  -api-daemon
 } system_data_file:file no_w_file_perms;
 # do not grant anything greater than r_file_perms and relabelfrom unlink
 # to installd

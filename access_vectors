@@ -393,6 +393,7 @@ class system
 	syslog_mod
 	syslog_console
 	module_request
+	module_load
 }
 
 #
@@ -875,6 +876,9 @@ class binder
 	set_context_mgr
 	transfer
 }
+
+class netlink_generic_socket
+inherits socket
 
 class property_service
 {

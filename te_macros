@@ -202,7 +202,7 @@ allow $1 self:capability2 block_suspend;
 define(`selinux_check_access', `
 allow $1 selinuxfs:file rw_file_perms;
 allow $1 kernel:security compute_av;
-allow $1 self:netlink_selinux_socket *;
+allow $1 self:netlink_selinux_socket { read write create getattr setattr lock relabelfrom relabelto append bind connect listen accept getopt setopt shutdown recvfrom sendto recv_msg send_msg name_bind };
 ')
 
 #####################################
@@ -304,6 +304,12 @@ define(`recovery_only', ifelse(target_recovery, `true', $1, ))
 # SELinux rules which apply only to userdebug or eng builds
 #
 define(`userdebug_or_eng', ifelse(target_build_variant, `eng', $1, ifelse(target_build_variant, `userdebug', $1)))
+
+#####################################
+# User builds
+# SELinux rules which apply only to user builds
+#
+define(`user_build', ifelse(target_build_variant, `user', $1))
 
 #####################################
 # write_logd(domain)
